@@ -240,9 +240,16 @@
               <div class="settings-card">
                 <div class="settings-card-header"><div class="settings-card-title">Profile Information</div></div>
                 <div class="settings-card-body">
-                  <div class="form-group" style="margin:0;"><label class="form-label">Display Name</label><input type="text" class="form-control" id="s-name" /></div>
+                  <div class="settings-row">
+                    <div>
+                      <div class="settings-row-label">Display Name</div>
+                      <div class="settings-row-sub" id="s-name-display" style="color:#ddd;font-size:.9rem;margin-top:.3rem;"></div>
+                    </div>
+                    <span style="font-size:.72rem;color:#555;background:#1e2130;border:1px solid #2a2d3a;border-radius:6px;padding:.2rem .6rem;">Cannot be changed</span>
+                  </div>
                   <div class="form-group" style="margin:0;"><label class="form-label">Email</label><input type="email" class="form-control" id="s-email" /></div>
                   <div class="form-group" style="margin:0;"><label class="form-label">New Password <span style="color:#555;font-weight:400;text-transform:none;">(leave blank to keep current)</span></label><input type="password" class="form-control" id="s-pass" placeholder="New password" /></div>
+                  <div style="font-size:.78rem;color:#666;margin-top:-.25rem;">⚠️ Your display name is locked because tasks are assigned to it. Contact your teacher to update it.</div>
                   <div><button class="btn btn-primary-green" onclick="saveProfile()">Save Changes</button></div>
                 </div>
               </div>
@@ -396,12 +403,15 @@
       const bt=sub?'Submitted':overdue?'Overdue':'Pending';
       const due=a.dueDate?new Date(a.dueDate+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'No due date';
       const dot={high:'🔴',medium:'🟡',low:'🟢'}[a.priority]||'';
+      const teacherName = a.createdBy
+        ? (getAccounts().find(acc=>acc.email===a.createdBy)?.name || a.createdBy)
+        : 'Teacher';
       return `<div class="task-card">
         <div class="task-card-left">
           <div class="task-card-title">${a.title}</div>
           ${a.desc?`<div class="task-card-desc">${a.desc}</div>`:''}
           <div class="task-card-meta">
-            <span class="badge badge-teacher">From Teacher</span>
+            <span class="badge badge-teacher">Teacher: ${teacherName}</span>
             ${dot} ${a.priority}
             <span>📅 ${due}</span>
             ${sub?`<span style="color:#555;font-size:.75rem;">Submitted ${new Date(sub.submittedAt).toLocaleDateString('en-AU')}</span>`:''}
@@ -588,30 +598,26 @@
   function initSettings(){
     const accounts=getAccounts();
     const me=accounts.find(a=>a.email===user.email)||user;
-    document.getElementById('s-name').value=me.name||'';
+    document.getElementById('s-name-display').textContent=me.name||'';
     document.getElementById('s-email').value=me.email||'';
     document.getElementById('s-pass').value='';
     showSettingsTab('profile');
   }
 
   function saveProfile(){
-    const name=document.getElementById('s-name').value.trim();
     const email=document.getElementById('s-email').value.trim().toLowerCase();
     const pass=document.getElementById('s-pass').value;
-    if(!name){ showToast('Name cannot be empty.'); return; }
     if(!email){ showToast('Email cannot be empty.'); return; }
     const accounts=getAccounts();
     const idx=accounts.findIndex(a=>a.email===user.email);
     if(idx===-1){ showToast('Account not found.'); return; }
-    accounts[idx].name=name;
+    // Name is intentionally NOT updated — tasks are keyed to the original name
     accounts[idx].email=email;
     if(pass.length>=6) accounts[idx].password=pass;
     else if(pass.length>0&&pass.length<6){ showToast('Password must be at least 6 characters.'); return; }
     saveAccounts(accounts);
-    user.name=name; user.email=email;
+    user.email=email;
     localStorage.setItem('tf_user',JSON.stringify(user));
-    document.getElementById('sidebar-name').textContent=name;
-    document.getElementById('sidebar-avatar').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     showToast('Profile saved!');
   }
 

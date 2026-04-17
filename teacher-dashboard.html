@@ -415,6 +415,7 @@
         priority,
         dueDate: document.getElementById('at-date').value,
         createdAt: new Date().toISOString(),
+        createdBy: user.email,
       });
     });
     saveAssignments(assignments);
@@ -435,7 +436,10 @@
   let activeDetailId = null;
   function renderAssigned() {
     const query = (document.getElementById('teacher-search').value||'').toLowerCase();
-    const assignments = getAssignments().filter(a=>!query||a.title.toLowerCase().includes(query)||a.student.toLowerCase().includes(query));
+    const assignments = getAssignments().filter(a=>
+      a.createdBy === user.email &&
+      (!query || a.title.toLowerCase().includes(query) || a.student.toLowerCase().includes(query))
+    );
     const submissions = getSubmissions();
     const tbody = document.getElementById('assigned-table-body');
     if (!assignments.length) {
@@ -487,7 +491,8 @@
   }
 
   function renderSubmissions() {
-    const submissions = getSubmissions();
+    const myAssignmentIds = new Set(getAssignments().filter(a=>a.createdBy===user.email).map(a=>String(a.id)));
+    const submissions = getSubmissions().filter(s=>myAssignmentIds.has(String(s.taskId)));
     const assignments = getAssignments();
     const tbody = document.getElementById('submissions-table-body');
     if (!submissions.length) { tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">No submissions yet.</td></tr>`; return; }
@@ -501,7 +506,7 @@
   }
 
   function renderStats() {
-    const a=getAssignments(), s=getSubmissions();
+    const a=getAssignments().filter(a=>a.createdBy===user.email), s=getSubmissions();
     const total=a.length, submitted=s.length, pending=Math.max(0,total-submitted);
     const rate=total?Math.round((submitted/total)*100):0;
     document.getElementById('stat-total').textContent=total;
@@ -523,7 +528,7 @@
     document.querySelectorAll('.settings-panel').forEach(el=>el.style.display='none');
     document.getElementById('sp-'+t).style.display='';
     if (t==='data') {
-      document.getElementById('s-task-count').textContent = getAssignments().length+' tasks in storage';
+      document.getElementById('s-task-count').textContent = getAssignments().filter(a=>a.createdBy===user.email).length+' tasks in storage';
       document.getElementById('s-student-count').textContent = getStudents().length+' registered students';
     }
   }
@@ -562,11 +567,12 @@
   }
 
   function clearAllData() {
-    if (!confirm('Delete ALL assignments and submissions? This cannot be undone.')) return;
-    localStorage.removeItem('tf_assignments');
-    localStorage.removeItem('tf_submissions');
+    if (!confirm('Delete ALL your assignments and their submissions? This cannot be undone.')) return;
+    const myIds = new Set(getAssignments().filter(a=>a.createdBy===user.email).map(a=>String(a.id)));
+    saveAssignments(getAssignments().filter(a=>a.createdBy!==user.email));
+    localStorage.setItem('tf_submissions', JSON.stringify(getSubmissions().filter(s=>!myIds.has(String(s.taskId)))));
     renderAll();
-    showToast('All data cleared.');
+    showToast('All your data cleared.');
   }
 
   // ── Toast ──
