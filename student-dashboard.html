@@ -587,8 +587,10 @@
       const tabs=['profile','notifications','appearance','data'];
       el.classList.toggle('active',tabs[i]===t);
     });
-    document.querySelectorAll('.settings-panel').forEach(el=>el.style.display='none');
-    document.getElementById('sp-'+t).style.display='';
+    ['profile','notifications','appearance','data'].forEach(id=>{
+      const el=document.getElementById('sp-'+id);
+      if(el) el.style.display = id===t ? 'block' : 'none';
+    });
     if(t==='data'){
       document.getElementById('s-task-count').textContent=getMyAssignments().length+' tasks assigned to me';
       document.getElementById('s-own-count').textContent=getOwnTasks().length+' personal tasks';
@@ -611,7 +613,6 @@
     const accounts=getAccounts();
     const idx=accounts.findIndex(a=>a.email===user.email);
     if(idx===-1){ showToast('Account not found.'); return; }
-    // Name is intentionally NOT updated — tasks are keyed to the original name
     accounts[idx].email=email;
     if(pass.length>=6) accounts[idx].password=pass;
     else if(pass.length>0&&pass.length<6){ showToast('Password must be at least 6 characters.'); return; }
@@ -626,6 +627,8 @@
     saveOwnTasks([]);
     renderOwnTasks();
     renderStats();
+    // Refresh the data counts shown in the settings panel
+    document.getElementById('s-own-count').textContent='0 personal tasks';
     showToast('Personal tasks cleared.');
   }
 

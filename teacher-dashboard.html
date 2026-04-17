@@ -525,8 +525,10 @@
       const tabs=['profile','notifications','appearance','data'];
       el.classList.toggle('active', tabs[i]===t);
     });
-    document.querySelectorAll('.settings-panel').forEach(el=>el.style.display='none');
-    document.getElementById('sp-'+t).style.display='';
+    ['profile','notifications','appearance','data'].forEach(id=>{
+      const el=document.getElementById('sp-'+id);
+      if(el) el.style.display = id===t ? 'block' : 'none';
+    });
     if (t==='data') {
       document.getElementById('s-task-count').textContent = getAssignments().filter(a=>a.createdBy===user.email).length+' tasks in storage';
       document.getElementById('s-student-count').textContent = getStudents().length+' registered students';
