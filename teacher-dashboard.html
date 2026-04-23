@@ -334,6 +334,31 @@
   function saveAssignments(a){ localStorage.setItem('tf_assignments',JSON.stringify(a)); }
   function getSubmissions(){ return JSON.parse(localStorage.getItem('tf_submissions')||'[]'); }
 
+  function getTeacherAssignments() {
+    return getAssignments().filter(a => a.createdBy === user.email);
+  }
+
+  function getLatestSubmissions(submissions) {
+    const latestByStudentTask = new Map();
+    submissions.forEach(s => {
+      const key = `${s.taskId}|${s.studentName || ''}`;
+      const prev = latestByStudentTask.get(key);
+      if (!prev || new Date(s.submittedAt) > new Date(prev.submittedAt)) {
+        latestByStudentTask.set(key, s);
+      }
+    });
+    return [...latestByStudentTask.values()];
+  }
+
+  function getTeacherSubmissions(assignments = getTeacherAssignments()) {
+    const assignmentIds = new Set(assignments.map(a => String(a.id)));
+    return getLatestSubmissions(getSubmissions().filter(s => assignmentIds.has(String(s.taskId))));
+  }
+
+  function getSubmissionsForAssignment(id) {
+    return getLatestSubmissions(getSubmissions().filter(s => String(s.taskId) === String(id)));
+  }
+
   // ── Mobile sidebar ──
   document.getElementById('sidebar-toggle').addEventListener('click',()=>{
     document.querySelector('.sidebar').classList.toggle('open');
@@ -436,8 +461,7 @@
   let activeDetailId = null;
   function renderAssigned() {
     const query = (document.getElementById('teacher-search').value||'').toLowerCase();
-    const assignments = getAssignments().filter(a=>
-      a.createdBy === user.email &&
+    const assignments = getTeacherAssignments().filter(a=>
       (!query || a.title.toLowerCase().includes(query) || a.student.toLowerCase().includes(query))
     );
     const submissions = getSubmissions();
@@ -469,7 +493,7 @@
   }
 
   function toggleDetail(id) {
-    const submissions = getSubmissions().filter(s=>s.taskId==id);
+    const submissions = getSubmissionsForAssignment(id);
     const assignment  = getAssignments().find(a=>a.id==id);
     const panel = document.getElementById('detail-panel');
     if (activeDetailId===id) { panel.classList.remove('open'); activeDetailId=null; return; }
@@ -491,9 +515,8 @@
   }
 
   function renderSubmissions() {
-    const myAssignmentIds = new Set(getAssignments().filter(a=>a.createdBy===user.email).map(a=>String(a.id)));
-    const submissions = getSubmissions().filter(s=>myAssignmentIds.has(String(s.taskId)));
-    const assignments = getAssignments();
+    const assignments = getTeacherAssignments();
+    const submissions = getTeacherSubmissions(assignments);
     const tbody = document.getElementById('submissions-table-body');
     if (!submissions.length) { tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">No submissions yet.</td></tr>`; return; }
     const sorted = [...submissions].sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
@@ -506,7 +529,7 @@
   }
 
   function renderStats() {
-    const a=getAssignments().filter(a=>a.createdBy===user.email), s=getSubmissions();
+    const a=getTeacherAssignments(), s=getTeacherSubmissions(a);
     const total=a.length, submitted=s.length, pending=Math.max(0,total-submitted);
     const rate=total?Math.round((submitted/total)*100):0;
     document.getElementById('stat-total').textContent=total;
