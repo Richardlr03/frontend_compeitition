@@ -366,6 +366,31 @@
   function getOwnTasks()    { return JSON.parse(localStorage.getItem('tf_own_'+STUDENT_NAME)||'[]'); }
   function saveOwnTasks(a)  { localStorage.setItem('tf_own_'+STUDENT_NAME,JSON.stringify(a)); }
 
+  function getLatestSubmissions(submissions) {
+    const latestByTask = new Map();
+    submissions.forEach(s => {
+      const key = String(s.taskId);
+      const prev = latestByTask.get(key);
+      if (!prev || new Date(s.submittedAt) > new Date(prev.submittedAt)) {
+        latestByTask.set(key, s);
+      }
+    });
+    return [...latestByTask.values()];
+  }
+
+  function getMySubmissions(assignments = getMyAssignments()) {
+    const assignmentIds = new Set(assignments.map(a => String(a.id)));
+    return getLatestSubmissions(getSubmissions().filter(s =>
+      s.studentName === STUDENT_NAME && assignmentIds.has(String(s.taskId))
+    ));
+  }
+
+  function getMySubmissionForTask(taskId) {
+    return getLatestSubmissions(getSubmissions().filter(s =>
+      s.studentName === STUDENT_NAME && String(s.taskId) === String(taskId)
+    ))[0] || null;
+  }
+
   // ── Mobile sidebar ──
   document.getElementById('sidebar-toggle').addEventListener('click',()=>{
     document.querySelector('.sidebar').classList.toggle('open');
@@ -394,11 +419,11 @@
   }
 
   function renderAssigned(){
-    const assignments=getMyAssignments(), submissions=getSubmissions();
+    const assignments=getMyAssignments();
     const el=document.getElementById('assigned-list');
     if(!assignments.length){ el.innerHTML=`<div class="empty-state"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div>No tasks assigned to you yet.</div>`; return; }
     el.innerHTML=assignments.map(a=>{
-      const sub=submissions.find(s=>s.taskId==a.id&&s.studentName===STUDENT_NAME);
+      const sub=getMySubmissionForTask(a.id);
       const today=new Date().toISOString().split('T')[0];
       const overdue=a.dueDate&&a.dueDate<today&&!sub;
       const bc=sub?'badge-submitted':overdue?'badge-overdue':'badge-pending';
@@ -443,7 +468,7 @@
   }
   function confirmSubmit(){
     if(!pendingSubmitId) return;
-    const subs=getSubmissions();
+    const subs=getSubmissions().filter(s=>!(String(s.taskId)===String(pendingSubmitId)&&s.studentName===STUDENT_NAME));
     subs.push({ taskId:pendingSubmitId, studentName:STUDENT_NAME, note:document.getElementById('submit-note').value.trim(), submittedAt:new Date().toISOString() });
     saveSubmissions(subs);
     closeSubmitModal();
@@ -457,7 +482,7 @@
   function goToday(){ calYear=new Date().getFullYear(); calMonth=new Date().getMonth(); renderCalendar(); }
 
   function renderCalendar(){
-    const assignments=getMyAssignments(), submissions=getSubmissions(), schedule=getSchedule(), ownTasks=getOwnTasks();
+    const assignments=getMyAssignments(), schedule=getSchedule(), ownTasks=getOwnTasks();
     document.getElementById('cal-month-label').textContent=new Date(calYear,calMonth,1).toLocaleString('en-AU',{month:'long',year:'numeric'});
     const firstDay=new Date(calYear,calMonth,1).getDay();
     const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
@@ -468,7 +493,7 @@
 
     assignments.forEach(a=>{
       if(!a.dueDate)return;
-      const sub=submissions.find(s=>s.taskId==a.id&&s.studentName===STUDENT_NAME);
+      const sub=getMySubmissionForTask(a.id);
       addEv(a.dueDate,{ label:a.title, cls:sub?'type-teacher-submitted type-complete':'type-teacher-'+(a.priority||'medium'), type:'📋 Teacher task', due:a.dueDate, priority:a.priority, status:sub?'Submitted ✓':'Pending', note:a.desc });
     });
     schedule.forEach(e=>{
@@ -575,7 +600,7 @@
 
   // ── Stats ──
   function renderStats(){
-    const a=getMyAssignments(), s=getSubmissions().filter(s=>s.studentName===STUDENT_NAME);
+    const a=getMyAssignments(), s=getMySubmissions(a);
     document.getElementById('stat-total').textContent=a.length;
     document.getElementById('stat-submitted').textContent=s.length;
     document.getElementById('stat-outstanding').textContent=Math.max(0,a.length-s.length);
